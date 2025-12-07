@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[context.production.environment]
+  # Fixes asset linking issues common with Vite on Netlify
+  VITE_BASE_URL = "/"
+
+[[redirects]]
+  # Handles all non-existent paths (for BrowserRouter)
+  from = "/*"
+  to = "/index.html"
+  status = 200
