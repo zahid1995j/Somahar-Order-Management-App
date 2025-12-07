@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS: ApiSettings = {
   baseUrl: "https://your-wordpress-site.com/wp-json/fbbot/v1",
   apiKey: "",
   useMock: false,
-  remember: false,
+  remember: true,
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -108,8 +108,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
-    // Resetting to default (where remember is false) triggers the useEffect to clear localStorage
     setSettings(DEFAULT_SETTINGS);
+    localStorage.removeItem('swift_track_settings');
   };
 
   const isAuthenticated = settings.useMock || (!!settings.apiKey && !!settings.baseUrl && !settings.baseUrl.includes('your-wordpress-site.com'));

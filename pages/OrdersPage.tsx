@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../context/AppContext';
 import { Order, Pagination } from '../types';
-import { Package, RefreshCw, Calendar, Truck, ArrowRight, Wallet, AlertTriangle, ArrowDown, ChevronLeft, ChevronRight, Search, X, Filter } from 'lucide-react';
+import { Package, RefreshCw, Calendar, Truck, ArrowRight, Wallet, AlertTriangle, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -22,18 +22,12 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 const OrdersPage: React.FC = () => {
-  const { service, settings, config } = useApp();
+  const { service, settings } = useApp();
   const [orders, setOrders] = useState<Order[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Search & Filter State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterPartner, setFilterPartner] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
 
   // Pull to refresh state
   const [pullY, setPullY] = useState(0);
@@ -47,8 +41,7 @@ const OrdersPage: React.FC = () => {
     setError('');
     
     try {
-      // Pass search and filters to the service
-      const data = await service.getOrders(pageToFetch, searchQuery, filterPartner, filterStatus);
+      const data = await service.getOrders(pageToFetch);
       setOrders(data.orders || []);
       setPagination(data.pagination);
       setCurrentPage(pageToFetch);
@@ -65,23 +58,16 @@ const OrdersPage: React.FC = () => {
     }
   };
 
-  // Debounce search/filter to prevent spamming API
   useEffect(() => {
-    const timer = setTimeout(() => {
-        fetchOrders(1);
-    }, 500);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, filterPartner, filterStatus]);
-
-  useEffect(() => {
-    // Reset to page 1 when settings change
+    // Reset to page 1 when settings change (e.g. login/logout/server switch)
     fetchOrders(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
   // Touch handlers for Pull-to-Refresh
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Only enable pull if we are at the top of the scroll container
+    // We target 'main' because that is the scrollable element in Layout.tsx
     const scrollContainer = document.querySelector('main');
     if (scrollContainer && scrollContainer.scrollTop === 0) {
       pullStartY.current = e.touches[0].clientY;
@@ -103,6 +89,7 @@ const OrdersPage: React.FC = () => {
     const diff = currentY - pullStartY.current;
 
     if (diff > 0) {
+      // Add resistance to the pull (logarithmic feel)
       const damped = Math.min(diff * 0.45, MAX_PULL);
       setPullY(damped);
     }
@@ -112,12 +99,14 @@ const OrdersPage: React.FC = () => {
     if (!isPulling.current) return;
     
     if (pullY > PULL_THRESHOLD) {
-      setLoading(true);
+      // Trigger refresh (always fetches page 1)
+      setLoading(true); // Show header spinner
       fetchOrders(1, true).then(() => {
-         if (navigator.vibrate) navigator.vibrate(20);
+         if (navigator.vibrate) navigator.vibrate(20); // Haptic feedback
       });
     }
     
+    // Reset
     isPulling.current = false;
     setPullY(0);
   };
@@ -126,8 +115,6 @@ const OrdersPage: React.FC = () => {
     if (newPage < 1 || (pagination && newPage > pagination.total_pages)) return;
     fetchOrders(newPage);
   };
-
-  const hasActiveFilters = filterPartner || filterStatus;
 
   return (
     <Layout 
@@ -138,60 +125,9 @@ const OrdersPage: React.FC = () => {
         </button>
       }
     >
-      {/* Search & Filter Bar - Sticky */}
-      <div className="sticky top-0 z-20 bg-[#f8fafc] pb-4 pt-1">
-          <div className="flex gap-2">
-            <div className="flex-1 bg-white rounded-2xl flex items-center px-4 py-3 shadow-soft border border-slate-100 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                <Search size={18} className="text-slate-400 shrink-0" />
-                <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search name, phone..." 
-                    className="w-full bg-transparent outline-none ml-2 text-sm font-medium placeholder:text-slate-300"
-                />
-                {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="p-1 bg-slate-100 rounded-full text-slate-500 hover:text-slate-700">
-                        <X size={14} />
-                    </button>
-                )}
-            </div>
-            <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 rounded-2xl flex items-center justify-center shadow-soft border transition-all ${showFilters || hasActiveFilters ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-100'}`}
-            >
-                <Filter size={18} />
-                {hasActiveFilters && <div className="w-2 h-2 rounded-full bg-primary absolute top-2 right-2 border border-white"></div>}
-            </button>
-          </div>
-          
-          {/* Filters Dropdowns */}
-          {(showFilters || hasActiveFilters) && (
-              <div className="grid grid-cols-2 gap-2 mt-2 animate-in slide-in-from-top-2">
-                  <select 
-                    value={filterPartner} 
-                    onChange={e => setFilterPartner(e.target.value)}
-                    className="w-full bg-white p-3 rounded-xl text-xs font-bold text-slate-600 shadow-sm border border-slate-100 outline-none focus:border-primary/30"
-                  >
-                      <option value="">All Partners</option>
-                      {config?.delivery_partners.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                  
-                  <select 
-                    value={filterStatus} 
-                    onChange={e => setFilterStatus(e.target.value)}
-                    className="w-full bg-white p-3 rounded-xl text-xs font-bold text-slate-600 shadow-sm border border-slate-100 outline-none focus:border-primary/30"
-                  >
-                      <option value="">All Statuses</option>
-                      {config?.quick_statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-              </div>
-          )}
-      </div>
-
       {/* Pull to Refresh Container */}
       <div 
-        className="relative min-h-[60vh] transition-transform duration-200 ease-out pb-8"
+        className="relative min-h-[80vh] transition-transform duration-200 ease-out pb-8"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -219,7 +155,7 @@ const OrdersPage: React.FC = () => {
         )}
 
         {loading && orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
+          <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400">
             <RefreshCw className="w-10 h-10 animate-spin mb-4 text-primary/50" />
             <p className="font-medium text-sm">Syncing orders...</p>
           </div>
@@ -234,7 +170,7 @@ const OrdersPage: React.FC = () => {
             <div className="flex items-end justify-between px-1 mb-2">
                <h2 className="text-xl font-bold text-slate-800">Your Orders</h2>
                <div className="text-xs font-medium px-2 py-1 bg-slate-100 rounded-lg text-slate-500">
-                 {pagination ? `${pagination.total_items} orders` : '...'}
+                 {pagination ? `${pagination.total_items} orders` : 'Loading...'}
                </div>
             </div>
 
@@ -288,8 +224,8 @@ const OrdersPage: React.FC = () => {
                 <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Package className="w-10 h-10 text-slate-300" />
                 </div>
-                <h3 className="text-slate-900 font-semibold mb-1">No Orders Found</h3>
-                <p className="text-slate-500 text-sm">Try adjusting your filters or search.</p>
+                <h3 className="text-slate-900 font-semibold mb-1">No Orders Yet</h3>
+                <p className="text-slate-500 text-sm">Create your first order to get started.</p>
               </div>
             )}
 

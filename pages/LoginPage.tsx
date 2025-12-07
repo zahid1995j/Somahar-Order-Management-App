@@ -4,18 +4,11 @@ import { Package2, ArrowRight, Key, Globe, ShieldCheck, Zap, HelpCircle, AlertTr
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage: React.FC = () => {
-  const { login, updateSettings, enableDemoMode, settings } = useApp();
+  const { login, updateSettings, enableDemoMode } = useApp();
   const navigate = useNavigate();
   
-  // Initialize with existing settings if available (and not default placeholder)
-  const [baseUrl, setBaseUrl] = useState(() => {
-    if (settings.baseUrl && !settings.baseUrl.includes('your-wordpress-site.com')) {
-      return settings.baseUrl;
-    }
-    return '';
-  });
-  
-  const [apiKey, setApiKey] = useState(settings.apiKey || '');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
