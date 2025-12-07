@@ -17,7 +17,8 @@ const SettingsPage: React.FC = () => {
 
   const handleSave = async () => {
     setLoading(true);
-    updateSettings(formData);
+    // Important: preserve the existing 'remember' setting when updating from here
+    updateSettings({ ...formData, remember: settings.remember });
     
     try {
       await refreshConfig();

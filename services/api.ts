@@ -107,22 +107,49 @@ class SwiftTrackService {
     if (endpoint === '/app-config') return MOCK_CONFIG;
     
     if (endpoint.startsWith('/orders')) {
-      // Parse page number from URL
-      const match = endpoint.match(/page=(\d+)/);
-      const page = match ? parseInt(match[1]) : 1;
-      const limit = 20; // Items per page
+      // Use URL object for easier parsing of multiple params
+      const dummyBase = 'http://mock.local';
+      const url = new URL(endpoint, dummyBase);
       
+      const page = parseInt(url.searchParams.get('page') || '1');
+      const search = (url.searchParams.get('search') || '').toLowerCase();
+      const partner = url.searchParams.get('delivery_partner') || '';
+      const status = url.searchParams.get('status') || '';
+      
+      let filteredOrders = MOCK_ORDERS;
+
+      // Filter by Search
+      if (search) {
+        filteredOrders = filteredOrders.filter(o => 
+          o.buyer_name.toLowerCase().includes(search) || 
+          o.phone.includes(search) ||
+          o.tracking_code.toLowerCase().includes(search)
+        );
+      }
+
+      // Filter by Partner
+      if (partner) {
+        filteredOrders = filteredOrders.filter(o => o.delivery_partner === partner);
+      }
+
+      // Filter by Status
+      if (status) {
+        filteredOrders = filteredOrders.filter(o => o.latest_status === status);
+      }
+
+      // Pagination
+      const limit = 20;
       const start = (page - 1) * limit;
       const end = start + limit;
-      const paginatedOrders = MOCK_ORDERS.slice(start, end);
-      const totalPages = Math.ceil(MOCK_ORDERS.length / limit);
+      const paginatedOrders = filteredOrders.slice(start, end);
+      const totalPages = Math.ceil(filteredOrders.length / limit);
 
       return {
         orders: paginatedOrders,
         pagination: { 
           current_page: page, 
-          total_pages: totalPages, 
-          total_items: MOCK_ORDERS.length 
+          total_pages: totalPages || 1, 
+          total_items: filteredOrders.length 
         }
       };
     }
@@ -146,14 +173,17 @@ class SwiftTrackService {
   // --- Public Methods ---
 
   async getConfig(): Promise<AppConfigResponse> {
-    // API Documentation says: Auth None (Public)
-    // We pass requireAuth = false to avoid sending the API Key header.
-    // This prevents CORS preflight errors if the server doesn't allow custom headers on public routes.
     return this.request<AppConfigResponse>('/app-config', { method: 'GET' }, false);
   }
 
-  async getOrders(page: number = 1): Promise<OrdersResponse> {
-    return this.request<OrdersResponse>(`/orders?page=${page}`, { method: 'GET' }, true);
+  async getOrders(page: number = 1, search: string = '', partner: string = '', status: string = ''): Promise<OrdersResponse> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+    if (partner) params.append('delivery_partner', partner);
+    if (status) params.append('status', status);
+
+    return this.request<OrdersResponse>(`/orders?${params.toString()}`, { method: 'GET' }, true);
   }
 
   async addOrder(data: CreateOrderPayload): Promise<{success: boolean, tracking_code: string, order_id: number}> {
