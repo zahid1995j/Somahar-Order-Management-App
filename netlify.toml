@@ -2,12 +2,18 @@
   command = "npm run build"
   publish = "dist"
 
-[context.production.environment]
-  # Fixes asset linking issues common with Vite on Netlify
-  VITE_BASE_URL = "/"
+[functions]
+  # CRITICAL: Resets the functions directory to the default location.
+  # This avoids the conflict you had with 'public/_redirects'.
+  directory = "netlify/functions" 
 
+# SPA Routing Fix
 [[redirects]]
-  # Handles all non-existent paths (for BrowserRouter)
+  # This ensures any non-file URL is served by index.html (BrowserRouter fix).
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Optional: Set the base environment for the build, which often resolves asset loading issues.
+[context.production.environment]
+  VITE_BASE_URL = "/"
